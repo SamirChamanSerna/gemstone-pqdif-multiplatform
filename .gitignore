@@ -1,0 +1,49 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/android/local.properties
+/windows/flutter/ephemeral/
+/macos/Flutter/ephemeral/
+/linux/flutter/ephemeral/
+/ios/Pods/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# .NET / C#
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# Native Binaries (Output)
+*.dll
+*.so
+*.dylib
+*.wasm
+*.exe
+*.pdb
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Protobuf Generated (Optional)
+# Descomentar si no quieres versionar el código generado
+# src/generated/
