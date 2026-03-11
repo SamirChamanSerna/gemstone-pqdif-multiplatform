@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishTrimmed>true</PublishTrimmed>
+    <WasmMainJSPath>main.js</WasmMainJSPath>
+  </PropertyGroup>
+
+</Project>
