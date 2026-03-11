@@ -37,6 +37,17 @@ build/
 *.exe
 *.pdb
 
+# Project Specific Artefacts (Build Outputs)
+web/dotnet_runtime/
+
+# Documentation & AI Context (Requested to be ignored)
+GEMINI.md
+Plan_de_Trabajo.md
+
+# Secrets
+.env
+.env.*
+
 # IDEs
 .vscode/
 .idea/
