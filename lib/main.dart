@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'src/presentation/calculator_view.dart';
+import 'src/presentation/views/metadata_view.dart';
 
 void main() {
   runApp(
@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
         useMaterial3: true,
       ),
-      home: const CalculatorView(),
+      home: const MetadataDashboard(),
     );
   }
 }

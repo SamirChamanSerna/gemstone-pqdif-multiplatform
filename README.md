@@ -30,6 +30,12 @@ Para probar la integración, lanza la aplicación en Chrome:
 flutter run -d chrome
 ```
 
+#### 3.1 Otro navegador
+Para utilizar Brave como navegador de pruebas:
+```bash
+$env:CHROME_EXECUTABLE="C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+```
+
 ## Notas sobre cambios recientes
 - Se ha actualizado el motor para soportar números decimales, negativos y grandes mediante el uso de `double`.
 - El script de compilación incluye automáticamente los archivos de soporte ICU (`.dat`) necesarios para el runtime de .NET.

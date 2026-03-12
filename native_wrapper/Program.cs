@@ -1,9 +1,11 @@
 using System;
+using System.Text;
 
 public class Program
 {
     public static void Main()
     {
-        Console.WriteLine("PQDIF WASM Module Initialized.");
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        Console.WriteLine("PQDIF WASM Module Initialized with CodePagesSupport.");
     }
 }

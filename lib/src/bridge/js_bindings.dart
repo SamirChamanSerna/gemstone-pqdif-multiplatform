@@ -1,12 +1,21 @@
 import 'dart:js_interop';
 
-// Extension Type para mapear los bindings estaticos generados en main.js de .NET WASM
+@JS('JSON.parse')
+external JSObject parseJson(JSString str);
+
+extension type PqdifMetadataResponseJS._(JSObject _) implements JSObject {
+  external JSString get VendorName;
+  external JSString get EquipmentName;
+  external JSNumber get ObservationCount;
+  external JSBoolean get IsSuccess;
+  external JSString get ErrorMessage;
+}
+
 @JS('dotnetPQDIF')
 extension type DotnetPQDIFBindings._(JSObject _) implements JSObject {
-  external JSNumber add(JSNumber a, JSNumber b);
+  external JSPromise<JSString> getFileMetadata(JSUint8Array? fileBytes, JSString? filePath);
   external JSString getRuntimeInfo();
 }
 
-// Expone el objeto inyectado en la variable global window
 @JS('window.dotnetPQDIF')
 external DotnetPQDIFBindings? get dotnetPQDIF;
