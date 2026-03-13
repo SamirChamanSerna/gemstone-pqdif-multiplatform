@@ -3,13 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/pqdif_analysis_provider.dart';
+import '../../providers/pqdif_series_provider.dart';
 import '../wasm_status_widget.dart';
+import 'waveform_view.dart';
 
-class MetadataDashboard extends ConsumerWidget {
+class MetadataDashboard extends ConsumerStatefulWidget {
   const MetadataDashboard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MetadataDashboard> createState() => _MetadataDashboardState();
+}
+
+class _MetadataDashboardState extends ConsumerState<MetadataDashboard> {
+  PlatformFile? _currentFile;
+
+  @override
+  Widget build(BuildContext context) {
     final bridgeState = ref.watch(wasmBridgeProvider);
     final analysisState = ref.watch(pqdifAnalysisProvider);
     
@@ -25,7 +34,7 @@ class MetadataDashboard extends ConsumerWidget {
             const WasmStatusWidget(),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: isReady ? () => _pickFile(ref) : null,
+              onPressed: isReady ? _pickFile : null,
               icon: const Icon(Icons.folder_open),
               label: const Text('Seleccionar Archivo PQDIF'),
               style: ElevatedButton.styleFrom(
@@ -34,15 +43,38 @@ class MetadataDashboard extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             Expanded(
+              flex: 1,
               child: _buildDashboard(analysisState),
             ),
+            if (_currentFile != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                   ref.read(pqdifSeriesProvider.notifier).fetchWindow(
+                     file: _currentFile!,
+                     obsIdx: 0,
+                     chIdx: 0,
+                     startIdx: 0,
+                     endIdx: 1000000, // Simulamos una gran cantidad de puntos para probar el diezmado MinMax
+                     targetPoints: 2000,
+                   );
+                },
+                icon: const Icon(Icons.show_chart),
+                label: const Text('Cargar Forma de Onda (Obs 0, Ch 0)'),
+              ),
+              const SizedBox(height: 16),
+              const Expanded(
+                flex: 2,
+                child: WaveformView(channelIndex: 0),
+              ),
+            ]
           ],
         ),
       ),
     );
   }
 
-  Future<void> _pickFile(WidgetRef ref) async {
+  Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pqd', 'pqdif'],
@@ -50,13 +82,14 @@ class MetadataDashboard extends ConsumerWidget {
     );
 
     if (result != null && result.files.isNotEmpty) {
-      final file = result.files.first;
-      ref.read(pqdifAnalysisProvider.notifier).analyzeFile(file);
+      setState(() {
+        _currentFile = result.files.first;
+      });
+      ref.read(pqdifAnalysisProvider.notifier).analyzeFile(_currentFile!);
     }
   }
 
   Widget _buildDashboard(AsyncValue<PqdifAnalysisResult?> state) {
-    // RAW FORMAT: Imprime exactamente lo que el C# extrajo del binario para fines de depuración y desarrollo.
     String rawFormat(String rawValue) {
       if (rawValue.isEmpty) return '(Valor Vacío en C#)';
       return rawValue; 
@@ -71,33 +104,31 @@ class MetadataDashboard extends ConsumerWidget {
           elevation: 4,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: ListView(
               children: [
-                const Text('Datos RAW Extraídos (Desarrollo)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text('Metadatos del Archivo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.business),
-                  title: const Text('Vendor RAW'),
+                  title: const Text('Vendor'),
                   subtitle: SelectableText(rawFormat(result.vendor)),
                 ),
                 ListTile(
                   leading: const Icon(Icons.devices),
-                  title: const Text('Equipment RAW'),
+                  title: const Text('Equipment'),
                   subtitle: SelectableText(rawFormat(result.equipment)),
                 ),
                 ListTile(
                   leading: const Icon(Icons.data_exploration),
-                  title: const Text('Total de Observaciones/Eventos'),
+                  title: const Text('Total de Observaciones'),
                   subtitle: Text(
                     result.observationCount.toString(),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.blueAccent),
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.blueAccent),
                   ),
                 ),
-                const Spacer(),
                 const Divider(),
-                Text('Tamaño del archivo: ${(result.fileSize / 1024 / 1024).toStringAsFixed(2)} MB', style: const TextStyle(color: Colors.grey)),
-                Text('Tiempo de procesamiento: ${result.executionTime.inMilliseconds} ms', style: const TextStyle(color: Colors.grey)),
+                Text('Tamaño: ${(result.fileSize / 1024 / 1024).toStringAsFixed(2)} MB', style: const TextStyle(color: Colors.grey)),
+                Text('Tiempo de lectura: ${result.executionTime.inMilliseconds} ms', style: const TextStyle(color: Colors.grey)),
               ],
             ),
           ),

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package gemstone_pqdif;
+
+// Modos de extracción
+enum ExtractionMode {
+  RAW = 0;       // Muestras originales (zoom profundo)
+  MIN_MAX = 1;   // Envolvente (pares mínimo/máximo por cubeta)
+}
+
+// Petición de ventana de series
+message SeriesWindowRequest {
+  int32 observation_index = 1; // Índice del registro de observación
+  int32 channel_index = 2;     // Índice del canal dentro de la observación
+  int32 start_index = 3;       // Punto de inicio de la ventana solicitada
+  int32 end_index = 4;         // Punto final de la ventana
+  int32 target_points = 5;     // Número de puntos deseados en la UI
+}
+
+// Respuesta de ventana de series
+message SeriesWindowResponse {
+  bool is_success = 1;
+  string error_message = 2;
+  ExtractionMode mode = 3;     // Enum para indicar si los datos son originales o procesados
+  int32 bucket_size = 4;       // El factor de decimación calculado y aplicado por el motor
+  bytes samples_binary = 5;    // Contendrá el buffer de double (Float64) serializado como bytes crudos
+}

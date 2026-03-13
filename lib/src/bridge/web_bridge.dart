@@ -5,6 +5,7 @@ import 'package:web/web.dart' as web;
 
 import 'bridge_interface.dart';
 import 'js_bindings.dart';
+import '../generated/series_data.pb.dart';
 
 class WebPQDIFBridge implements IPQDIFBridge {
   final Completer<void> _initCompleter = Completer<void>();
@@ -75,6 +76,30 @@ class WebPQDIFBridge implements IPQDIFBridge {
       return result.toDart;
     } catch (e) {
       throw Exception('Excepcion interna al llamar a GetRuntimeInfo() de C#: $e');
+    }
+  }
+
+  @override
+  Future<SeriesWindowResponse> getSeriesWindow({required SeriesWindowRequest request, Uint8List? bytes, String? path}) async {
+    await _waitForInit();
+    try {
+      final jsBytes = bytes?.toJS;
+      final jsPath = path?.toJS;
+
+      final jsResult = dotnetPQDIF!.getSeriesWindowWasm(
+        jsBytes,
+        jsPath,
+        request.observationIndex.toJS,
+        request.channelIndex.toJS,
+        request.startIndex.toJS,
+        request.endIndex.toJS,
+        request.targetPoints.toJS,
+      );
+
+      final resultBytes = jsResult.toDart;
+      return SeriesWindowResponse.fromBuffer(resultBytes);
+    } catch (e) {
+      throw Exception('Excepcion interna al llamar a GetSeriesWindow() de C#: $e');
     }
   }
 

@@ -10,7 +10,16 @@
 
   <ItemGroup>
     <PackageReference Include="Gemstone.PQDIF" Version="1.0.166" />
+    <PackageReference Include="Google.Protobuf" Version="3.34.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.62.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\proto\series_data.proto" GrpcServices="None" />
   </ItemGroup>
 
 </Project>
