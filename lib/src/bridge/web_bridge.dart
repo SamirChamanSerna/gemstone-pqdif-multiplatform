@@ -1,18 +1,17 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 
 import 'bridge_interface.dart';
 import 'js_bindings.dart';
 
-// Implementacion web que maneja el ciclo de vida del script principal
 class WebPQDIFBridge implements IPQDIFBridge {
   final Completer<void> _initCompleter = Completer<void>();
   bool _isInitializing = false;
 
   @override
   Future<void> initialize() async {
-    // Es idempotente: solo inicializa una vez.
     if (_initCompleter.isCompleted || _isInitializing) {
       return _initCompleter.future;
     }
@@ -24,7 +23,6 @@ class WebPQDIFBridge implements IPQDIFBridge {
         return;
       }
 
-      // Inyectar el orquestador JS del sdk .NET 
       final script = web.HTMLScriptElement()
         ..type = 'module'
         ..src = 'dotnet_runtime/main.js';
@@ -46,13 +44,26 @@ class WebPQDIFBridge implements IPQDIFBridge {
   }
 
   @override
-  Future<double> add(double a, double b) async {
+  Future<PqdifMetadataResponse> getMetadata({Uint8List? bytes, String? path}) async {
     await _waitForInit();
     try {
-      final result = dotnetPQDIF!.add(a.toJS, b.toJS);
-      return result.toDartDouble;
+      JSUint8Array? jsBytes = bytes?.toJS;
+      JSString? jsPath = path?.toJS;
+
+      final promise = dotnetPQDIF!.getFileMetadata(jsBytes, jsPath);
+      final jsonStringJS = await promise.toDart;
+      
+      final jsObj = parseJson(jsonStringJS) as PqdifMetadataResponseJS;
+      
+      return PqdifMetadataResponse(
+        vendorName: jsObj.VendorName.toDart,
+        equipmentName: jsObj.EquipmentName.toDart,
+        observationCount: jsObj.ObservationCount.toDartInt,
+        isSuccess: jsObj.IsSuccess.toDart,
+        errorMessage: jsObj.ErrorMessage.toDart,
+      );
     } catch (e) {
-      throw Exception('Excepcion interna al llamar a Add() de C#: $e');
+      throw Exception('Excepcion interna al llamar a GetFileMetadata() de C#: $e');
     }
   }
 
@@ -77,5 +88,4 @@ class WebPQDIFBridge implements IPQDIFBridge {
   }
 }
 
-// Selector exportado que llama internamente en modo web
 IPQDIFBridge createBridge() => WebPQDIFBridge();
