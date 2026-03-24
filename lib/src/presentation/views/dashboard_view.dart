@@ -6,6 +6,7 @@ import '../../providers/pqdif_analysis_provider.dart';
 import '../../providers/pqdif_series_provider.dart';
 import '../wasm_status_widget.dart';
 import 'waveform_view.dart';
+import 'export_view.dart';
 import '../widgets/fault_box.dart';
 
 class DashboardView extends ConsumerStatefulWidget {
@@ -27,7 +28,20 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
     final isReady = !bridgeState.isLoading && !bridgeState.hasError;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Gemstone PQDIF Analizador')),
+      appBar: AppBar(
+        title: const Text('Gemstone PQDIF Analizador'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            onPressed: seriesState.value != null && seriesState.value!.selectedChannels.isNotEmpty
+                ? () {
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExportView()));
+                  }
+                : null,
+            tooltip: "Exportar Seleccion",
+          )
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -44,6 +58,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
               ),
             ),
             const SizedBox(height: 16),
+            if (analysisState.hasError)
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.red.shade100,
+                child: Text('Error: ${analysisState.error}\n${analysisState.stackTrace}', style: const TextStyle(color: Colors.red)),
+              ),
             if (analysisState.value != null) ...[
               _buildFileFaultsOverview(analysisState.value!),
               const SizedBox(height: 16),

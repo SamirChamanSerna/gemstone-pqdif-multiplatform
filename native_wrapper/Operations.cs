@@ -50,13 +50,15 @@ public partial class PqdifOperations
                             TimeTriggered = obsRecord.TimeTriggered.ToString("o")
                         };
 
-                        if (obsRecord.DisturbanceCategoryID != Guid.Empty && obsRecord.DisturbanceCategoryID != DisturbanceCategory.None) {
-                            var distInfo = DisturbanceCategory.GetInfo(obsRecord.DisturbanceCategoryID);
-                            if (distInfo != null) {
-                                obsSum.DisturbanceCategory = distInfo.Name ?? "";
-                                obsSum.DisturbanceDescription = distInfo.Description ?? "";
+                        try {
+                            if (obsRecord.DisturbanceCategoryID != Guid.Empty) {
+                                var distInfo = DisturbanceCategory.GetInfo(obsRecord.DisturbanceCategoryID);
+                                if (distInfo != null) {
+                                    obsSum.DisturbanceCategory = distInfo.Name ?? "";
+                                    obsSum.DisturbanceDescription = distInfo.Description ?? "";
+                                }
                             }
-                        }
+                        } catch { }
 
                         int chIndex = 0;
                         foreach (var channel in obsRecord.ChannelInstances)
@@ -245,6 +247,120 @@ public partial class PqdifOperations
         if (ptr != IntPtr.Zero)
         {
             Marshal.FreeHGlobal(ptr);
+        }
+    }
+
+    private static PqdifWriterSession? _writerSession;
+
+    [JSExport]
+    public static byte[] InitWriteSessionWasm(byte[] requestBytes)
+    {
+        try
+        {
+            var req = WriteInitRequest.Parser.ParseFrom(requestBytes);
+            _writerSession?.Dispose();
+            _writerSession = new PqdifWriterSession(req);
+            return new WriteResponse { IsSuccess = true }.ToByteArray();
+        }
+        catch (Exception ex)
+        {
+            return new WriteResponse { IsSuccess = false, ErrorMessage = ex.Message + "\n" + ex.StackTrace }.ToByteArray();
+        }
+    }
+
+    [JSExport]
+    public static byte[] AddObservationWasm(byte[] requestBytes)
+    {
+        try
+        {
+            if (_writerSession == null) throw new InvalidOperationException("Session not initialized");
+            var req = WriteObservationRequest.Parser.ParseFrom(requestBytes);
+            _writerSession.AddObservation(req);
+            return new WriteResponse { IsSuccess = true }.ToByteArray();
+        }
+        catch (Exception ex)
+        {
+            return new WriteResponse { IsSuccess = false, ErrorMessage = ex.Message + "\n" + ex.StackTrace }.ToByteArray();
+        }
+    }
+
+    [JSExport]
+    public static byte[] FinalizeWriteSessionWasm()
+    {
+        try
+        {
+            if (_writerSession == null) throw new InvalidOperationException("Session not initialized");
+            var res = _writerSession.FinalizeSession();
+            _writerSession = null;
+            return res.ToByteArray();
+        }
+        catch (Exception ex)
+        {
+            return new WriteResponse { IsSuccess = false, ErrorMessage = ex.Message + "\n" + ex.StackTrace }.ToByteArray();
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "init_write_session_native")]
+    public static unsafe int InitWriteSessionNative(IntPtr requestBytesPtr, int requestBytesLen, IntPtr* outBufferPtr, int* outBufferLen)
+    {
+        try
+        {
+            byte[] reqBytes = new byte[requestBytesLen];
+            Marshal.Copy(requestBytesPtr, reqBytes, 0, requestBytesLen);
+            var resultBytes = InitWriteSessionWasm(reqBytes);
+            if (outBufferLen != null) *outBufferLen = resultBytes.Length;
+            if (outBufferPtr != null)
+            {
+                *outBufferPtr = Marshal.AllocHGlobal(resultBytes.Length);
+                Marshal.Copy(resultBytes, 0, *outBufferPtr, resultBytes.Length);
+            }
+            return 0;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "add_observation_native")]
+    public static unsafe int AddObservationNative(IntPtr requestBytesPtr, int requestBytesLen, IntPtr* outBufferPtr, int* outBufferLen)
+    {
+        try
+        {
+            byte[] reqBytes = new byte[requestBytesLen];
+            Marshal.Copy(requestBytesPtr, reqBytes, 0, requestBytesLen);
+            var resultBytes = AddObservationWasm(reqBytes);
+            if (outBufferLen != null) *outBufferLen = resultBytes.Length;
+            if (outBufferPtr != null)
+            {
+                *outBufferPtr = Marshal.AllocHGlobal(resultBytes.Length);
+                Marshal.Copy(resultBytes, 0, *outBufferPtr, resultBytes.Length);
+            }
+            return 0;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "finalize_write_session_native")]
+    public static unsafe int FinalizeWriteSessionNative(IntPtr* outBufferPtr, int* outBufferLen)
+    {
+        try
+        {
+            var resultBytes = FinalizeWriteSessionWasm();
+            if (outBufferLen != null) *outBufferLen = resultBytes.Length;
+            if (outBufferPtr != null)
+            {
+                *outBufferPtr = Marshal.AllocHGlobal(resultBytes.Length);
+                Marshal.Copy(resultBytes, 0, *outBufferPtr, resultBytes.Length);
+            }
+            return 0;
+        }
+        catch
+        {
+            return -1;
         }
     }
 }

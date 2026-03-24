@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <Protobuf Include="..\proto\series_data.proto" GrpcServices="None" />
+    <Protobuf Include="..\proto\pqdif_writer.proto" GrpcServices="None" />
   </ItemGroup>
 
 </Project>

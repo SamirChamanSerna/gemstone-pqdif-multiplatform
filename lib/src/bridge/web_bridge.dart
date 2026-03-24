@@ -6,6 +6,7 @@ import 'package:web/web.dart' as web;
 import 'bridge_interface.dart';
 import 'js_bindings.dart';
 import '../generated/series_data.pb.dart';
+import '../generated/pqdif_writer.pb.dart';
 
 class WebPQDIFBridge implements IPQDIFBridge {
   final Completer<void> _initCompleter = Completer<void>();
@@ -110,4 +111,48 @@ class WebPQDIFBridge implements IPQDIFBridge {
   }
 }
 
+class WebPQDIFWriterBridge implements IPQDIFWriterBridge {
+  final WebPQDIFBridge _mainBridge;
+  
+  WebPQDIFWriterBridge(this._mainBridge);
+
+  @override
+  Future<WriteResponse> initWriteSession(WriteInitRequest request) async {
+    await _mainBridge.initialize();
+    try {
+      final jsRequestBytes = request.writeToBuffer().toJS;
+      final jsResult = dotnetPQDIF!.initWriteSessionWasm(jsRequestBytes);
+      final resultBytes = jsResult.toDart;
+      return WriteResponse.fromBuffer(resultBytes);
+    } catch (e) {
+      throw Exception('Excepcion al llamar initWriteSessionWasm: $e');
+    }
+  }
+
+  @override
+  Future<WriteResponse> addObservation(WriteObservationRequest request) async {
+    try {
+      final jsRequestBytes = request.writeToBuffer().toJS;
+      final jsResult = dotnetPQDIF!.addObservationWasm(jsRequestBytes);
+      final resultBytes = jsResult.toDart;
+      return WriteResponse.fromBuffer(resultBytes);
+    } catch (e) {
+      throw Exception('Excepcion al llamar addObservationWasm: $e');
+    }
+  }
+
+  @override
+  Future<WriteResponse> finalizeWriteSession() async {
+    try {
+      final jsResult = dotnetPQDIF!.finalizeWriteSessionWasm();
+      final resultBytes = jsResult.toDart;
+      return WriteResponse.fromBuffer(resultBytes);
+    } catch (e) {
+      throw Exception('Excepcion al llamar finalizeWriteSessionWasm: $e');
+    }
+  }
+}
+
 IPQDIFBridge createBridge() => WebPQDIFBridge();
+IPQDIFWriterBridge createWriterBridge(IPQDIFBridge mainBridge) => WebPQDIFWriterBridge(mainBridge as WebPQDIFBridge);
+

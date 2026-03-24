@@ -164,3 +164,81 @@ Este módulo representa la capa superior de la aplicación en Flutter. En el Hit
 *   **Selector Industrial (`FilePicker`)**: Utiliza `FilePicker.platform.pickFiles` filtrando por extensiones `.pqd` y `.pqdif`. Activa la bandera `withData: true` crucial en la Web para recuperar los buffers en memoria en lugar de intentar leer rutas de disco inexistentes en el navegador.
 *   **Vista RAW Selectable**: Imprime los valores extraídos del archivo (`Vendor` y `Equipment`) utilizando `SelectableText`. Al no intentar traducir ni adivinar diccionarios, sirve como una herramienta de depuración vital para que los desarrolladores inspeccionen los verdaderos GUIDs o textos corruptos ocultos dentro del PQDIF.
 *   **Visualización de Latencia y Tamaño**: Expone de manera transparente el tamaño original del archivo procesado y el tiempo invertido por la librería `Gemstone.PQDIF`.
+
+---
+
+## Módulo 5: Contrato de Datos Universal (Protobuf)
+
+**Ubicación:** `/proto/` y `/lib/src/generated/`
+
+Este módulo define la "Fuente de Verdad Única" para el intercambio binario de series de tiempo entre C# y Dart, reemplazando las lentas serializaciones JSON.
+
+### `series_data.proto`
+**Propósito:** Define los esquemas de comunicación estructurados para la extracción de ventanas de datos.
+
+**Funcionalidad Clave:**
+*   **Payloads Binarios Eficientes:** El campo `bytes samples_binary` permite transferir arrays masivos de punto flotante de 64 bits sin el overhead iterativo del motor Protobuf.
+*   **Modos de Extracción (`ExtractionMode`):** Soporta modo `RAW` (muestras originales) y `MIN_MAX` (envolvente decaimada).
+*   **Estructuras Jerárquicas:** Incluye la representación estructurada de metadatos de canales y eventos de falla detectados (`FaultEvent`).
+
+---
+
+## Módulo 6: Motor de Extracción y Procesamiento Digital (C#)
+
+**Ubicación:** `/native_wrapper/`
+
+### `TimeSeriesExtractor.cs`
+**Propósito:** Contiene el núcleo de procesamiento matemático para la decimación de señales.
+
+**Funcionalidad Clave:**
+*   **Algoritmo Min-Max:** Decima las series de tiempo conservando fidelidad visual al calcular y retener el valor mínimo y máximo de cada "cubeta" de tiempo. Previene la pérdida de picos transitorios presentes en el formato original.
+*   **Zero-Allocation:** Usa preasignación y acceso a memoria vía `ReadOnlySpan<double>` y `MemoryMarshal` para evitar copias costosas en el _managed heap_.
+
+### `Writer/PqdifWriterSession.cs`
+**Propósito:** Encapsula el motor `LogicalWriter` de Gemstone.PQDIF para construir incrementalmente archivos IEEE 1159.3, gestionando el ciclo de vida de la sesión (Init, AddObservation, Finalize).
+
+**Funcionalidad Clave:**
+*   **Agnosticismo de IO:** Utiliza `MemoryStream` (en WASM) o `FileStream` (en Nativo) transparente a la lógica de escritura.
+*   **Escritura Secuencial Obligatoria:** Garantiza la inyección prioritaria del `ContainerRecord` antes de inicializar la metadata del DataSource, cumpliendo con el estándar PQDIF.
+*   **Workarounds de Gemstone:** Evita métodos estáticos propensos a bugs (`ChannelDefinition.CreateChannelDefinition`) en favor de inicializadores directos (`AddNewChannelDefinition()`) para evitar la excepción `MoreThanOneMatchException` al definir series de tiempo únicas por canal.
+*   **Zero-Allocation de Escritura:** Transfiere el payload binario (`bytes data_raw` de Protobuf) directamente usando `MemoryMarshal.Cast<byte, double>` hacia el `SeriesInstance`, evitando duplicación de la ventana de datos en la memoria manejada.
+
+### `Operations.cs` (Actualizado)
+**Propósito:** Actúa como aduana de datos, adaptando llamadas FFI/JS y gestionando memoria.
+
+**Funcionalidad Clave:**
+*   Implementa puntos de entrada como `GetSeriesWindowNative` y `GetSeriesWindowWasm`, así como los comandos de ciclo de vida de exportación (`InitWriteSessionWasm`, `AddObservationWasm`, etc.).
+*   Aplica liberación explícita de `HGlobal` para prevenir _Memory Leaks_ en plataformas nativas (`FreeSeriesBuffer`).
+*   **Depuración Inter-Lenguaje:** Captura y serializa el `ex.StackTrace` de .NET dentro del Protobuf de respuesta (`WriteResponse.ErrorMessage`) para propagar fallos de bajo nivel (como violaciones de jerarquía de registros) directamente a la consola de Flutter.
+
+---
+
+## Módulo 7: Orquestación de UI y Visores de Señal (Dart)
+
+**Ubicación:** `/lib/src/presentation/` y `/lib/src/providers/`
+
+### `pqdif_series_provider.dart`
+**Propósito:** Cerebro de gestión de estado para solicitar las ventanas de series de tiempo de manera dinámica ("Target-Z").
+
+**Funcionalidad Clave:**
+*   **Resolución Dinámica:** Calcula el `bucketSize` basado en el nivel de zoom y delega la decimación a C# para asegurar transferencias O(1) a través del puente WASM/FFI.
+*   **Debounce:** Evita solicitudes excesivas de "Alta Resolución" durante manipulaciones rápidas del gráfico por el usuario.
+
+### `views/waveform_view.dart`
+**Propósito:** Lienzo gráfico de alto rendimiento.
+
+**Funcionalidad Clave:**
+*   Renderiza la señal consumiendo el array plano subyacente del Protobuf, soportando visualización "manchada" o "envolvente" requerida por el formato Min-Max de manera muy eficiente.
+
+### `views/dashboard_view.dart`
+**Propósito:** Marco de interfaz de usuario para explorar canales y metadatos del archivo PQDIF.
+
+**Funcionalidad Clave:**
+*   **Árbol de Exploración:** Navegación lógica de Observaciones y Selección múltiple de Canales de voltaje/corriente.
+
+### `widgets/fault_box.dart`
+**Propósito:** Componente de diagnóstico inteligente.
+
+**Funcionalidad Clave:**
+*   Presenta los eventos pre-calculados (Sags, Swells) detectados por C# y proporciona atajos rápidos de auto-zoom a la ventana temporal donde ocurrió la anomalía.
+
