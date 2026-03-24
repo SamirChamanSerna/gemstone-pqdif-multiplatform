@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from proto/series_data.proto.
+// Generated from series_data.proto.
 
 // @dart = 3.3
 

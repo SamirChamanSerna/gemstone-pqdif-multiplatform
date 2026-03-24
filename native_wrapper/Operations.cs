@@ -1,27 +1,21 @@
 #nullable enable
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Linq;
-using Google.Protobuf;
 using Gemstone.PQDIF.Logical;
-using Gemstone.PQDIF.Wasm.Models;
+using GemstonePqdif;
+using Google.Protobuf;
 
 namespace Gemstone.PQDIF.Wasm;
 
-[JsonSerializable(typeof(PqdifMetadataResponse))]
-internal partial class PqdifJsonContext : JsonSerializerContext { }
-
 public partial class PqdifOperations
 {
-    [JSExport]
-    public static async Task<string> GetFileMetadata(byte[]? fileBytes, string? filePath)
+    private static async Task<FileMetadataResponse> GetFileMetadataInternal(byte[]? fileBytes, string? filePath)
     {
-        var response = new PqdifMetadataResponse();
+        var response = new FileMetadataResponse();
         try
         {
             Stream? stream = null;
@@ -44,11 +38,33 @@ public partial class PqdifOperations
                 {
                     await parser.OpenAsync(stream, false);
                     
-                    int observationCount = 0;
+                    int obsIndex = 0;
                     while (await parser.HasNextObservationRecordAsync())
                     {
-                        await parser.NextObservationRecordAsync();
-                        observationCount++;
+                        var obsRecord = await parser.NextObservationRecordAsync();
+                        var obsSum = new ObservationSummary
+                        {
+                            ObservationIndex = obsIndex,
+                            ObservationName = obsRecord.Name ?? $"Observation {obsIndex}",
+                            StartTime = obsRecord.StartTime.ToString("o")
+                        };
+
+                        int chIndex = 0;
+                        foreach (var channel in obsRecord.ChannelInstances)
+                        {
+                            var chDef = channel.Definition;
+                            obsSum.Channels.Add(new ChannelSummary
+                            {
+                                ChannelIndex = chIndex,
+                                ChannelName = chDef.ChannelName ?? $"Channel {chIndex}",
+                                Phase = chDef.Phase.ToString(),
+                                QuantityType = chDef.QuantityMeasured.ToString()
+                            });
+                            chIndex++;
+                        }
+                        
+                        response.Observations.Add(obsSum);
+                        obsIndex++;
                     }
 
                     var dataSources = parser.DataSourceRecords;
@@ -57,42 +73,25 @@ public partial class PqdifOperations
                         var dsRecord = dataSources.FirstOrDefault();
                         if (dsRecord != null)
                         {
-                            // Extracción segura del Fabricante (Vendor)
-                            try
-                            {
-                                response.VendorName = string.IsNullOrWhiteSpace(dsRecord.DataSourceOwner) 
-                                    ? dsRecord.VendorID.ToString() 
-                                    : dsRecord.DataSourceOwner;
-                            }
-                            catch (Exception)
-                            {
-                                // Si el campo físico 'DataSourceOwner' no existe, la propiedad lanza excepción.
-                                try { response.VendorName = dsRecord.VendorID.ToString(); }
-                                catch { response.VendorName = "UNKNOWN_VENDOR_ID"; }
-                            }
+                            try { response.Manufacturer = string.IsNullOrWhiteSpace(dsRecord.DataSourceOwner) ? dsRecord.VendorID.ToString() : dsRecord.DataSourceOwner; }
+                            catch { response.Manufacturer = "UNKNOWN_VENDOR_ID"; }
                             
-                            // Extracción segura del Equipo (Equipment)
-                            try
-                            {
-                                response.EquipmentName = string.IsNullOrWhiteSpace(dsRecord.DataSourceName) 
-                                    ? dsRecord.EquipmentID.ToString() 
-                                    : dsRecord.DataSourceName;
-                            }
-                            catch (Exception)
-                            {
-                                // Si el campo físico 'DataSourceName' no existe, la propiedad lanza excepción.
-                                try { response.EquipmentName = dsRecord.EquipmentID.ToString(); }
-                                catch { response.EquipmentName = "UNKNOWN_EQUIPMENT_ID"; }
-                            }
+                            try { response.EquipmentModel = string.IsNullOrWhiteSpace(dsRecord.DataSourceName) ? dsRecord.EquipmentID.ToString() : dsRecord.DataSourceName; }
+                            catch { response.EquipmentModel = "UNKNOWN_EQUIPMENT_ID"; }
                         }
                     }
                     else
                     {
-                        response.VendorName = "NO-DATASOURCE-RECORD";
-                        response.EquipmentName = "NO-DATASOURCE-RECORD";
+                        response.Manufacturer = "NO-DATASOURCE-RECORD";
+                        response.EquipmentModel = "NO-DATASOURCE-RECORD";
+                    }
+
+                    if (!string.IsNullOrEmpty(filePath)) {
+                        response.FileName = Path.GetFileName(filePath);
+                    } else {
+                        response.FileName = "WASM_Upload";
                     }
                     
-                    response.ObservationCount = observationCount;
                     response.IsSuccess = true;
                 }
             }
@@ -103,7 +102,47 @@ public partial class PqdifOperations
             response.ErrorMessage = ex.Message;
         }
 
-        return JsonSerializer.Serialize(response, PqdifJsonContext.Default.PqdifMetadataResponse);
+        return response;
+    }
+
+    [JSExport]
+    public static byte[] GetFileMetadataWasm(byte[]? fileBytes, string? filePath)
+    {
+        var response = GetFileMetadataInternal(fileBytes, filePath).GetAwaiter().GetResult();
+        return response.ToByteArray();
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "get_file_metadata_native")]
+    public static unsafe int GetFileMetadataNative(IntPtr filePathPtr, IntPtr* outBufferPtr, int* outBufferLen)
+    {
+        if (outBufferPtr != null) *outBufferPtr = IntPtr.Zero;
+        if (outBufferLen != null) *outBufferLen = 0;
+        try
+        {
+            string filePath = Marshal.PtrToStringUTF8(filePathPtr) ?? "";
+            var response = GetFileMetadataInternal(null, filePath).GetAwaiter().GetResult();
+            
+            byte[] buffer = response.ToByteArray();
+            if (outBufferLen != null) *outBufferLen = buffer.Length;
+            if (outBufferPtr != null)
+            {
+                *outBufferPtr = Marshal.AllocHGlobal(buffer.Length);
+                Marshal.Copy(buffer, 0, *outBufferPtr, buffer.Length);
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            var errResp = new FileMetadataResponse { IsSuccess = false, ErrorMessage = ex.Message };
+            byte[] errBuffer = errResp.ToByteArray();
+            if (outBufferLen != null) *outBufferLen = errBuffer.Length;
+            if (outBufferPtr != null)
+            {
+                *outBufferPtr = Marshal.AllocHGlobal(errBuffer.Length);
+                Marshal.Copy(errBuffer, 0, *outBufferPtr, errBuffer.Length);
+            }
+            return -1;
+        }
     }
 
     [JSExport]
@@ -113,8 +152,10 @@ public partial class PqdifOperations
     }
 
     [JSExport]
-    public static byte[] GetSeriesWindowWasm(byte[]? fileBytes, string? filePath, int obsIdx, int chIdx, int start, int end, int targetPoints)
+    public static byte[] GetSeriesWindowWasm(byte[]? fileBytes, string? filePath, byte[] requestBytes)
     {
+        var request = SeriesWindowRequest.Parser.ParseFrom(requestBytes);
+
         Stream? stream = null;
         if (fileBytes != null && fileBytes.Length > 0)
         {
@@ -126,27 +167,44 @@ public partial class PqdifOperations
         }
         else
         {
-            var errResp = new GemstonePqdif.SeriesWindowResponse { IsSuccess = false, ErrorMessage = "Must provide either fileBytes or filePath" };
+            var errResp = new SeriesWindowResponse { IsSuccess = false, ErrorMessage = "Must provide either fileBytes or filePath" };
             return errResp.ToByteArray();
         }
 
         using (stream)
         {
-            var response = TimeSeriesExtractor.GetSeriesWindowAsync(stream, obsIdx, chIdx, start, end, targetPoints).GetAwaiter().GetResult();
+            var response = TimeSeriesExtractor.GetSeriesWindowAsync(
+                stream, 
+                request.ObservationIndex, 
+                request.ChannelIndices, 
+                request.StartIndex, 
+                request.EndIndex, 
+                request.TargetPoints).GetAwaiter().GetResult();
             return response.ToByteArray();
         }
     }
 
     [UnmanagedCallersOnly(EntryPoint = "get_series_window_native")]
-    public static unsafe int GetSeriesWindowNative(IntPtr filePathPtr, int obsIdx, int chIdx, int start, int end, int targetPoints, IntPtr* outBufferPtr, int* outBufferLen)
+    public static unsafe int GetSeriesWindowNative(IntPtr filePathPtr, IntPtr requestBytesPtr, int requestBytesLen, IntPtr* outBufferPtr, int* outBufferLen)
     {
         if (outBufferPtr != null) *outBufferPtr = IntPtr.Zero;
         if (outBufferLen != null) *outBufferLen = 0;
         try
         {
             string filePath = Marshal.PtrToStringUTF8(filePathPtr) ?? "";
+            
+            byte[] requestBytes = new byte[requestBytesLen];
+            Marshal.Copy(requestBytesPtr, requestBytes, 0, requestBytesLen);
+            var request = SeriesWindowRequest.Parser.ParseFrom(requestBytes);
+
             using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            var response = TimeSeriesExtractor.GetSeriesWindowAsync(stream, obsIdx, chIdx, start, end, targetPoints).GetAwaiter().GetResult();
+            var response = TimeSeriesExtractor.GetSeriesWindowAsync(
+                stream, 
+                request.ObservationIndex, 
+                request.ChannelIndices, 
+                request.StartIndex, 
+                request.EndIndex, 
+                request.TargetPoints).GetAwaiter().GetResult();
             
             byte[] buffer = response.ToByteArray();
             if (outBufferLen != null) *outBufferLen = buffer.Length;
@@ -160,7 +218,7 @@ public partial class PqdifOperations
         }
         catch (Exception ex)
         {
-            var errResp = new GemstonePqdif.SeriesWindowResponse { IsSuccess = false, ErrorMessage = ex.Message };
+            var errResp = new SeriesWindowResponse { IsSuccess = false, ErrorMessage = ex.Message };
             byte[] errBuffer = errResp.ToByteArray();
             if (outBufferLen != null) *outBufferLen = errBuffer.Length;
             if (outBufferPtr != null)

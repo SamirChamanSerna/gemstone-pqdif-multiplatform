@@ -45,24 +45,20 @@ class WebPQDIFBridge implements IPQDIFBridge {
   }
 
   @override
-  Future<PqdifMetadataResponse> getMetadata({Uint8List? bytes, String? path}) async {
+  Future<FileMetadataResponse> getMetadata({Uint8List? bytes, String? path}) async {
     await _waitForInit();
     try {
       JSUint8Array? jsBytes = bytes?.toJS;
       JSString? jsPath = path?.toJS;
 
-      final promise = dotnetPQDIF!.getFileMetadata(jsBytes, jsPath);
-      final jsonStringJS = await promise.toDart;
+      final jsResult = dotnetPQDIF!.getFileMetadataWasm(jsBytes, jsPath);
+      final resultBytes = jsResult.toDart;
       
-      final jsObj = parseJson(jsonStringJS) as PqdifMetadataResponseJS;
-      
-      return PqdifMetadataResponse(
-        vendorName: jsObj.VendorName.toDart,
-        equipmentName: jsObj.EquipmentName.toDart,
-        observationCount: jsObj.ObservationCount.toDartInt,
-        isSuccess: jsObj.IsSuccess.toDart,
-        errorMessage: jsObj.ErrorMessage.toDart,
-      );
+      final response = FileMetadataResponse.fromBuffer(resultBytes);
+      if (!response.isSuccess) {
+        throw Exception(response.errorMessage);
+      }
+      return response;
     } catch (e) {
       throw Exception('Excepcion interna al llamar a GetFileMetadata() de C#: $e');
     }
@@ -85,19 +81,20 @@ class WebPQDIFBridge implements IPQDIFBridge {
     try {
       final jsBytes = bytes?.toJS;
       final jsPath = path?.toJS;
+      final jsRequestBytes = request.writeToBuffer().toJS;
 
       final jsResult = dotnetPQDIF!.getSeriesWindowWasm(
         jsBytes,
         jsPath,
-        request.observationIndex.toJS,
-        request.channelIndex.toJS,
-        request.startIndex.toJS,
-        request.endIndex.toJS,
-        request.targetPoints.toJS,
+        jsRequestBytes,
       );
 
       final resultBytes = jsResult.toDart;
-      return SeriesWindowResponse.fromBuffer(resultBytes);
+      final response = SeriesWindowResponse.fromBuffer(resultBytes);
+      if (!response.isSuccess) {
+        throw Exception(response.errorMessage);
+      }
+      return response;
     } catch (e) {
       throw Exception('Excepcion interna al llamar a GetSeriesWindow() de C#: $e');
     }

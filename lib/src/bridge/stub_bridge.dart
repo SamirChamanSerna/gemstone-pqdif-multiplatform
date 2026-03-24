@@ -9,7 +9,7 @@ class StubPQDIFBridge implements IPQDIFBridge {
   }
 
   @override
-  Future<PqdifMetadataResponse> getMetadata({Uint8List? bytes, String? path}) async {
+  Future<FileMetadataResponse> getMetadata({Uint8List? bytes, String? path}) async {
     throw UnsupportedError('La plataforma nativa todavia no esta soportada.');
   }
 

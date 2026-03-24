@@ -4,29 +4,36 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/bridge_selector.dart';
-import '../bridge/bridge_interface.dart';
 import '../generated/series_data.pb.dart';
 
 class SeriesState {
   final Map<int, Float64List> channelData;
+  final List<FaultEvent> faults;
   final double executionTimeMs;
   final int currentBucketSize;
+  final Set<int> selectedChannels;
 
   SeriesState({
     required this.channelData,
+    required this.faults,
     required this.executionTimeMs,
     required this.currentBucketSize,
+    required this.selectedChannels,
   });
 
   SeriesState copyWith({
     Map<int, Float64List>? channelData,
+    List<FaultEvent>? faults,
     double? executionTimeMs,
     int? currentBucketSize,
+    Set<int>? selectedChannels,
   }) {
     return SeriesState(
       channelData: channelData ?? this.channelData,
+      faults: faults ?? this.faults,
       executionTimeMs: executionTimeMs ?? this.executionTimeMs,
       currentBucketSize: currentBucketSize ?? this.currentBucketSize,
+      selectedChannels: selectedChannels ?? this.selectedChannels,
     );
   }
 }
@@ -38,37 +45,61 @@ class PqdifSeriesNotifier extends AutoDisposeAsyncNotifier<SeriesState> {
   FutureOr<SeriesState> build() {
     return SeriesState(
       channelData: {},
+      faults: [],
       executionTimeMs: 0.0,
       currentBucketSize: 1,
+      selectedChannels: {},
     );
+  }
+
+  void toggleChannel(int channelIndex) {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+    
+    final newSelected = Set<int>.from(currentState.selectedChannels);
+    if (newSelected.contains(channelIndex)) {
+      newSelected.remove(channelIndex);
+    } else {
+      newSelected.add(channelIndex);
+    }
+    
+    state = AsyncData(currentState.copyWith(selectedChannels: newSelected));
+  }
+
+  void clearChannels() {
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+    state = AsyncData(currentState.copyWith(selectedChannels: {}));
   }
 
   void fetchWindow({
     required PlatformFile file,
     required int obsIdx,
-    required int chIdx,
     required int startIdx,
     required int endIdx,
     required int targetPoints,
   }) {
+    final currentState = state.valueOrNull;
+    if (currentState == null || currentState.selectedChannels.isEmpty) return;
+
     if (_debounceTimer?.isActive ?? false) {
       _debounceTimer!.cancel();
     }
 
     _debounceTimer = Timer(const Duration(milliseconds: 150), () {
-      _executeFetch(file, obsIdx, chIdx, startIdx, endIdx, targetPoints);
+      _executeFetch(file, obsIdx, currentState.selectedChannels.toList(), startIdx, endIdx, targetPoints);
     });
   }
 
   Future<void> _executeFetch(
     PlatformFile file,
     int obsIdx,
-    int chIdx,
+    List<int> channelIndices,
     int startIdx,
     int endIdx,
     int targetPoints,
   ) async {
-    final previousState = state.valueOrNull ?? SeriesState(channelData: {}, executionTimeMs: 0, currentBucketSize: 1);
+    final previousState = state.valueOrNull ?? SeriesState(channelData: {}, faults: [], executionTimeMs: 0, currentBucketSize: 1, selectedChannels: channelIndices.toSet());
     
     // Maintain previous state to avoid flickering (Z-fighting prevention)
     state = AsyncLoading<SeriesState>().copyWithPrevious(AsyncData(previousState));
@@ -93,29 +124,17 @@ class PqdifSeriesNotifier extends AutoDisposeAsyncNotifier<SeriesState> {
 
       final request = SeriesWindowRequest(
         observationIndex: obsIdx,
-        channelIndex: chIdx,
+        channelIndices: channelIndices,
         startIndex: startIdx,
         endIndex: endIdx,
         targetPoints: targetPoints,
       );
 
-      SeriesWindowResponse response;
-
-      if (!kIsWeb) {
-        // En nativo idealmente se usa compute, pero primero validaremos la arquitectura WASM
-        // Se usaría: response = await compute(_fetchNativeIsolate, {...});
-        response = await pqdifBridge.getSeriesWindow(
-          request: request,
-          bytes: bytes,
-          path: path,
-        );
-      } else {
-        response = await pqdifBridge.getSeriesWindow(
-          request: request,
-          bytes: bytes,
-          path: path,
-        );
-      }
+      SeriesWindowResponse response = await pqdifBridge.getSeriesWindow(
+        request: request,
+        bytes: bytes,
+        path: path,
+      );
 
       stopwatch.stop();
 
@@ -123,11 +142,20 @@ class PqdifSeriesNotifier extends AutoDisposeAsyncNotifier<SeriesState> {
         throw Exception(response.errorMessage);
       }
 
-      final newChannelData = Map<int, Float64List>.from(previousState.channelData);
-      newChannelData[chIdx] = response.samples;
+      final newChannelData = <int, Float64List>{};
+      for (var chData in response.channelData) {
+        final bytes = Uint8List.fromList(chData.samplesBinary);
+        final floatData = Float64List(bytes.length ~/ 8);
+        final byteData = ByteData.view(bytes.buffer);
+        for (int i = 0; i < floatData.length; i++) {
+          floatData[i] = byteData.getFloat64(i * 8, Endian.little);
+        }
+        newChannelData[chData.channelIndex] = floatData;
+      }
 
       state = AsyncData(previousState.copyWith(
         channelData: newChannelData,
+        faults: response.faults,
         executionTimeMs: stopwatch.elapsedMilliseconds.toDouble(),
         currentBucketSize: response.bucketSize,
       ));
