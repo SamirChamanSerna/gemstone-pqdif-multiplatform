@@ -9,8 +9,10 @@ const config = getConfig();
 const exports = await getAssemblyExports(config.mainAssemblyName);
 
 window.dotnetPQDIF = {
-    getFileMetadata: (fileBytes, filePath) => exports.Gemstone.PQDIF.Wasm.PqdifOperations.GetFileMetadata(fileBytes, filePath),
-    getRuntimeInfo: () => exports.Gemstone.PQDIF.Wasm.PqdifOperations.GetRuntimeInfo()
+    getFileMetadataWasm: (fileBytes, filePath) => exports.Gemstone.PQDIF.Wasm.PqdifOperations.GetFileMetadataWasm(fileBytes, filePath),
+    getRuntimeInfo: () => exports.Gemstone.PQDIF.Wasm.PqdifOperations.GetRuntimeInfo(),
+    getSeriesWindowWasm: (fileBytes, filePath, requestBytes) => 
+        exports.Gemstone.PQDIF.Wasm.PqdifOperations.GetSeriesWindowWasm(fileBytes, filePath, requestBytes)
 };
 
 console.log('.NET WASM Runtime initialized for PQDIF Wrapper.');

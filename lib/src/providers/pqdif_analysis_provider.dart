@@ -4,24 +4,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../bridge/bridge_selector.dart';
+import '../generated/series_data.pb.dart';
 
 final wasmBridgeProvider = FutureProvider<void>((ref) async {
   await pqdifBridge.initialize();
 });
 
 class PqdifAnalysisResult {
-  final String vendor;
-  final String equipment;
-  final int observationCount;
+  final FileMetadataResponse metadata;
   final Duration executionTime;
   final int fileSize;
+  final PlatformFile file;
 
   PqdifAnalysisResult({
-    required this.vendor,
-    required this.equipment,
-    required this.observationCount,
+    required this.metadata,
     required this.executionTime,
     required this.fileSize,
+    required this.file,
   });
 }
 
@@ -64,11 +63,10 @@ class PqdifAnalysisNotifier extends AsyncNotifier<PqdifAnalysisResult?> {
       }
 
       state = AsyncData(PqdifAnalysisResult(
-        vendor: response.vendorName,
-        equipment: response.equipmentName,
-        observationCount: response.observationCount,
+        metadata: response,
         executionTime: stopwatch.elapsed,
         fileSize: size,
+        file: file,
       ));
     } catch (e, st) {
       stopwatch.stop();
