@@ -42,7 +42,7 @@ web/dotnet_runtime/
 
 # Documentation & AI Context (Requested to be ignored)
 GEMINI.md
-Plan_de_Trabajo.md
+# Plan_de_Trabajo.md
 
 # Secrets
 .env

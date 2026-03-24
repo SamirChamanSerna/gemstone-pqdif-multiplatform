@@ -9,6 +9,10 @@ extension type DotnetPQDIFBindings._(JSObject _) implements JSObject {
     JSString? filePath, 
     JSUint8Array requestBytes
   );
+  
+  external JSUint8Array initWriteSessionWasm(JSUint8Array requestBytes);
+  external JSUint8Array addObservationWasm(JSUint8Array requestBytes);
+  external JSUint8Array finalizeWriteSessionWasm();
 }
 
 @JS('window.dotnetPQDIF')

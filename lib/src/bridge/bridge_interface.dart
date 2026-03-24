@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import '../generated/series_data.pb.dart';
+import '../generated/pqdif_writer.pb.dart';
 
 abstract class IPQDIFBridge {
   Future<void> initialize();
@@ -8,7 +9,8 @@ abstract class IPQDIFBridge {
   Future<SeriesWindowResponse> getSeriesWindow({required SeriesWindowRequest request, Uint8List? bytes, String? path});
 }
 
-extension SeriesDataMapping on SeriesWindowResponse {
-  // If we only had one channel, we would map like this. But now we have multiple channels.
-  // The UI will handle it from channel_data list directly.
+abstract class IPQDIFWriterBridge {
+  Future<WriteResponse> initWriteSession(WriteInitRequest request);
+  Future<WriteResponse> addObservation(WriteObservationRequest request);
+  Future<WriteResponse> finalizeWriteSession();
 }
