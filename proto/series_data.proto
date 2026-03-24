@@ -20,6 +20,9 @@ message ObservationSummary {
   string observation_name = 2;
   string start_time = 3;
   repeated ChannelSummary channels = 4;
+  string disturbance_category = 5;
+  string disturbance_description = 6;
+  string time_triggered = 7;
 }
 
 message FileMetadataResponse {

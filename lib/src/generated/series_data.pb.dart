@@ -116,12 +116,20 @@ class ObservationSummary extends $pb.GeneratedMessage {
     $core.String? observationName,
     $core.String? startTime,
     $core.Iterable<ChannelSummary>? channels,
+    $core.String? disturbanceCategory,
+    $core.String? disturbanceDescription,
+    $core.String? timeTriggered,
   }) {
     final result = create();
     if (observationIndex != null) result.observationIndex = observationIndex;
     if (observationName != null) result.observationName = observationName;
     if (startTime != null) result.startTime = startTime;
     if (channels != null) result.channels.addAll(channels);
+    if (disturbanceCategory != null)
+      result.disturbanceCategory = disturbanceCategory;
+    if (disturbanceDescription != null)
+      result.disturbanceDescription = disturbanceDescription;
+    if (timeTriggered != null) result.timeTriggered = timeTriggered;
     return result;
   }
 
@@ -143,6 +151,9 @@ class ObservationSummary extends $pb.GeneratedMessage {
     ..aOS(3, _omitFieldNames ? '' : 'startTime')
     ..pPM<ChannelSummary>(4, _omitFieldNames ? '' : 'channels',
         subBuilder: ChannelSummary.create)
+    ..aOS(5, _omitFieldNames ? '' : 'disturbanceCategory')
+    ..aOS(6, _omitFieldNames ? '' : 'disturbanceDescription')
+    ..aOS(7, _omitFieldNames ? '' : 'timeTriggered')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -193,6 +204,33 @@ class ObservationSummary extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(4)
   $pb.PbList<ChannelSummary> get channels => $_getList(3);
+
+  @$pb.TagNumber(5)
+  $core.String get disturbanceCategory => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set disturbanceCategory($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDisturbanceCategory() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDisturbanceCategory() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get disturbanceDescription => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set disturbanceDescription($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDisturbanceDescription() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDisturbanceDescription() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get timeTriggered => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set timeTriggered($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasTimeTriggered() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearTimeTriggered() => $_clearField(7);
 }
 
 class FileMetadataResponse extends $pb.GeneratedMessage {

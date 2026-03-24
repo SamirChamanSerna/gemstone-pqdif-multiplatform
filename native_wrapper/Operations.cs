@@ -46,8 +46,17 @@ public partial class PqdifOperations
                         {
                             ObservationIndex = obsIndex,
                             ObservationName = obsRecord.Name ?? $"Observation {obsIndex}",
-                            StartTime = obsRecord.StartTime.ToString("o")
+                            StartTime = obsRecord.StartTime.ToString("o"),
+                            TimeTriggered = obsRecord.TimeTriggered.ToString("o")
                         };
+
+                        if (obsRecord.DisturbanceCategoryID != Guid.Empty && obsRecord.DisturbanceCategoryID != DisturbanceCategory.None) {
+                            var distInfo = DisturbanceCategory.GetInfo(obsRecord.DisturbanceCategoryID);
+                            if (distInfo != null) {
+                                obsSum.DisturbanceCategory = distInfo.Name ?? "";
+                                obsSum.DisturbanceDescription = distInfo.Description ?? "";
+                            }
+                        }
 
                         int chIndex = 0;
                         foreach (var channel in obsRecord.ChannelInstances)

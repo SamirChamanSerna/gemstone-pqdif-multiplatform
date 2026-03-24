@@ -66,6 +66,21 @@ const ObservationSummary$json = {
       '6': '.gemstone_pqdif.ChannelSummary',
       '10': 'channels'
     },
+    {
+      '1': 'disturbance_category',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'disturbanceCategory'
+    },
+    {
+      '1': 'disturbance_description',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '10': 'disturbanceDescription'
+    },
+    {'1': 'time_triggered', '3': 7, '4': 1, '5': 9, '10': 'timeTriggered'},
   ],
 };
 
@@ -74,7 +89,10 @@ final $typed_data.Uint8List observationSummaryDescriptor = $convert.base64Decode
     'ChJPYnNlcnZhdGlvblN1bW1hcnkSKwoRb2JzZXJ2YXRpb25faW5kZXgYASABKAVSEG9ic2Vydm'
     'F0aW9uSW5kZXgSKQoQb2JzZXJ2YXRpb25fbmFtZRgCIAEoCVIPb2JzZXJ2YXRpb25OYW1lEh0K'
     'CnN0YXJ0X3RpbWUYAyABKAlSCXN0YXJ0VGltZRI6CghjaGFubmVscxgEIAMoCzIeLmdlbXN0b2'
-    '5lX3BxZGlmLkNoYW5uZWxTdW1tYXJ5UghjaGFubmVscw==');
+    '5lX3BxZGlmLkNoYW5uZWxTdW1tYXJ5UghjaGFubmVscxIxChRkaXN0dXJiYW5jZV9jYXRlZ29y'
+    'eRgFIAEoCVITZGlzdHVyYmFuY2VDYXRlZ29yeRI3ChdkaXN0dXJiYW5jZV9kZXNjcmlwdGlvbh'
+    'gGIAEoCVIWZGlzdHVyYmFuY2VEZXNjcmlwdGlvbhIlCg50aW1lX3RyaWdnZXJlZBgHIAEoCVIN'
+    'dGltZVRyaWdnZXJlZA==');
 
 @$core.Deprecated('Use fileMetadataResponseDescriptor instead')
 const FileMetadataResponse$json = {

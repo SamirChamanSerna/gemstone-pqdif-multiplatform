@@ -45,6 +45,8 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
             ),
             const SizedBox(height: 16),
             if (analysisState.value != null) ...[
+              _buildFileFaultsOverview(analysisState.value!),
+              const SizedBox(height: 16),
               _buildMetadataAndControls(analysisState.value!),
               const SizedBox(height: 16),
             ],
@@ -77,6 +79,72 @@ class _DashboardViewState extends ConsumerState<DashboardView> {
         _selectedObservation = 0;
       });
     }
+  }
+
+  Widget _buildFileFaultsOverview(PqdifAnalysisResult result) {
+    final observations = result.metadata.observations;
+    final observationsWithFaults = observations.where((o) => o.disturbanceCategory.isNotEmpty && o.disturbanceCategory != 'None').toList();
+    
+    if (observations.isEmpty) {
+      return Card(
+        color: Colors.blue.shade50,
+        child: const Padding(
+          padding: EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue),
+              SizedBox(width: 8),
+              Expanded(child: Text('No se encontraron observaciones en el archivo.', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      color: Colors.blueGrey.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(observationsWithFaults.isNotEmpty ? Icons.warning : Icons.list_alt, 
+                     color: observationsWithFaults.isNotEmpty ? Colors.red : Colors.blueGrey),
+                const SizedBox(width: 8),
+                Text(
+                  'Observaciones: ${observations.length} (Fallas pre-calculadas: ${observationsWithFaults.length})', 
+                  style: TextStyle(fontWeight: FontWeight.bold, color: observationsWithFaults.isNotEmpty ? Colors.red : Colors.blueGrey, fontSize: 16)
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...observations.map((obs) {
+               final isFault = obs.disturbanceCategory.isNotEmpty && obs.disturbanceCategory != 'None';
+               return Padding(
+                 padding: const EdgeInsets.only(bottom: 8.0),
+                 child: Row(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     Icon(isFault ? Icons.error_outline : Icons.check_circle_outline, 
+                          color: isFault ? Colors.red : Colors.green, size: 18),
+                     const SizedBox(width: 8),
+                     Expanded(
+                       child: Text(
+                         '[Obs ${obs.observationIndex}] ${obs.observationName}\n  Inicio: ${obs.startTime}' + 
+                         (isFault ? '\n  Falla: ${obs.disturbanceCategory} (${obs.disturbanceDescription})' : ''),
+                         style: const TextStyle(color: Colors.black87),
+                       ),
+                     ),
+                   ],
+                 ),
+               );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildMetadataAndControls(PqdifAnalysisResult result) {

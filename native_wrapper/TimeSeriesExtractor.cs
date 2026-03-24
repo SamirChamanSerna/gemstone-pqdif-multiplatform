@@ -147,6 +147,28 @@ public static class TimeSeriesExtractor
                     }
                 }
                 
+                // Extract declared disturbance from the PQDIF file
+                try {
+                    if (obsRecord.DisturbanceCategoryID != Guid.Empty && obsRecord.DisturbanceCategoryID != DisturbanceCategory.None) {
+                        var distInfo = DisturbanceCategory.GetInfo(obsRecord.DisturbanceCategoryID);
+                        if (distInfo != null) {
+                            // Check if we already added this observation's fault to avoid duplicates if multiple channels are processed
+                            bool alreadyAdded = response.Faults.Any(f => f.EventType == distInfo.Name && f.ChannelIndex == chIdx);
+                            if (!alreadyAdded) {
+                                response.Faults.Add(new FaultEvent {
+                                    EventType = distInfo.Name ?? "Perturbación",
+                                    Magnitude = 0,
+                                    DurationMs = 0,
+                                    ChannelIndex = chIdx,
+                                    StartIndex = startIndex,
+                                    EndIndex = endIndex,
+                                    Description = distInfo.Description ?? "Falla declarada en el registro PQDIF"
+                                });
+                            }
+                        }
+                    }
+                } catch { }
+
                 var binaryBytes = MemoryMarshal.AsBytes<double>(output).ToArray();
                 
                 response.ChannelData.Add(new ChannelData
