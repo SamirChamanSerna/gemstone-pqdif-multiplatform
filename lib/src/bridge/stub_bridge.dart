@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'bridge_interface.dart';
 import '../generated/series_data.pb.dart';
+import '../generated/pqdif_writer.pb.dart';
 
 class StubPQDIFBridge implements IPQDIFBridge {
   @override

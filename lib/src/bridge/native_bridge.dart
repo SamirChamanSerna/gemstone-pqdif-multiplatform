@@ -5,6 +5,7 @@ import 'package:ffi/ffi.dart';
 
 import 'bridge_interface.dart';
 import '../generated/series_data.pb.dart';
+import '../generated/pqdif_writer.pb.dart';
 
 typedef GetFileMetadataNativeC = Int32 Function(Pointer<Utf8> filePathPtr, Pointer<Pointer<Uint8>> outBufferPtr, Pointer<Int32> outBufferLen);
 typedef GetFileMetadataNativeDart = int Function(Pointer<Utf8> filePathPtr, Pointer<Pointer<Uint8>> outBufferPtr, Pointer<Int32> outBufferLen);
